@@ -1,0 +1,124 @@
+import openai
+import requests
+import PyPDF2
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from concurrent.futures import ThreadPoolExecutor
+import time
+import json
+
+
+# Set up OpenAI API key and endpoint for chat completions
+OPENAI_API_KEY = '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'  # Replace with your actual API key
+OPENAI_CHAT_COMPLETION_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+
+# Function to extract text from a PDF file
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    with open(pdf_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            text += page.extract_text()
+    return text
+
+# Function to make an actual API call to OpenAI chat completion (GPT-4)
+def process_chunk_gpt4(chunk, retries=5, wait_time=2):
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "model": "gpt-4o-mini",  # Use GPT-4 model
+        "messages": [
+            {"role": "system", "content": "You are a compliance expert."},
+            {"role": "user", "content": f"""
+            Review the following section for critical compliance-related information, especially focusing on regulatory requirements, cybersecurity policies, audit guidelines, and reporting standards:
+            
+            {chunk}
+            
+            Summarize the compliance requirements mentioned and provide a checklist.
+            """}
+        ],
+        "max_tokens": 1000
+    }
+
+    for attempt in range(retries):
+        try:
+            response = requests.post(OPENAI_CHAT_COMPLETION_ENDPOINT, headers=headers, json=data, timeout=30)
+            response.raise_for_status()  # Check for HTTP errors
+            return response.json()['choices'][0]['message']['content']  # Return the chat completion result
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 429:
+                print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                wait_time *= 2  # Exponential backoff: double the wait time for each retry
+            else:
+                raise e  # Raise other errors
+    raise Exception(f"Failed after {retries} retries.")
+
+# Parallel processing of document chunks (actual API calls)
+def process_document_parallel(chunks, delay=2):
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = []
+        for chunk in chunks:
+            result = executor.submit(process_chunk_gpt4, chunk)
+            results.append(result)
+            time.sleep(delay)  # Simulating delay to avoid rate limits
+        return [result.result() for result in results]
+
+# Generate a Checklist based on the results
+def generate_checklist(results):
+    # Placeholder for generating a compliance checklist based on results (can customize based on actual needs)
+    checklist = {
+        "Checklist": [
+            "Ensure data encryption is enabled",
+            "Conduct quarterly audits",
+            "Implement multi-factor authentication"
+        ]
+    }
+    return checklist
+
+# Save results as a JSON file
+def save_results_to_json(output, checklist, filename="results.json"):
+    data = {
+        "compliance_info": output,
+        "checklist": checklist
+    }
+    with open(filename, "w") as json_file:
+        json.dump(data, json_file, indent=4)
+    print(f"Results saved to {filename}")
+
+# Main processing function
+def process_document(text, query):
+    # Simulating the extraction of relevant sections
+    chunks = [text[i:i+1000] for i in range(0, len(text), 1000)]  # Simulated chunking
+    
+    # Step 2: Process relevant sections (API call)
+    print("Processing relevant sections with GPT-4...")
+    results = process_document_parallel(chunks, delay=2)
+    
+    # Combine results into a single output
+    final_output = "\n".join(results)
+    
+    # Step 3: Generate a checklist
+    checklist = generate_checklist(results)
+    
+    # Save results as a JSON file
+    save_results_to_json(final_output, checklist)
+
+# Example usage
+if __name__ == "__main__":
+    # Path to your PDF document
+    pdf_path = "E:\cyber-doc_B.pdf"
+    
+    # Extract the text from the PDF document
+    document_text = extract_text_from_pdf(pdf_path)
+    
+    # Query: Looking for compliance-related content
+    query = "compliance requirements for cybersecurity, audit, and reporting"
+    
+    # Process the document
+    process_document(document_text, query)
+
