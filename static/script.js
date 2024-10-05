@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const uploadForm = document.getElementById('upload-form');
     if (uploadForm) {
         uploadForm.addEventListener('submit', handleUpload);
@@ -13,20 +13,51 @@ document.addEventListener('DOMContentLoaded', function() {
     const apiUsageModal = document.getElementById('api-usage-modal');
     const closeButton = apiUsageModal.querySelector('.close');
 
-    showApiUsageButton.addEventListener('click', function() {
+    showApiUsageButton.addEventListener('click', function () {
         fetchApiUsage();
         apiUsageModal.style.display = 'block';
     });
 
-    closeButton.addEventListener('click', function() {
+    closeButton.addEventListener('click', function () {
         apiUsageModal.style.display = 'none';
     });
 
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         if (event.target === apiUsageModal) {
             apiUsageModal.style.display = 'none';
         }
     });
+
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.getAttribute('data-tab');
+
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+
+            button.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        });
+    });
+
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+
+    if (chatForm && chatInput && chatMessages) {
+        chatForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (message) {
+                addMessageToChat('You', message);
+                chatInput.value = '';
+                sendMessageToBackend(message);
+            }
+        });
+    }
 
     pollDocumentStatus();
 });
@@ -35,23 +66,23 @@ async function handleUpload(e) {
     e.preventDefault();
     const form = e.target;
     const formData = new FormData(form);
-    
+
     const loadingElement = document.getElementById('loading');
     const messageElement = document.getElementById('message');
     const errorMessageElement = document.getElementById('error-message');
-    
+
     if (loadingElement) loadingElement.classList.remove('hidden');
     if (messageElement) messageElement.classList.add('hidden');
     if (errorMessageElement) errorMessageElement.classList.add('hidden');
-    
+
     try {
         const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
             if (messageElement) {
                 messageElement.textContent = result.message;
@@ -104,63 +135,23 @@ async function pollDocumentStatus() {
 
 function displayResults(result) {
     const resultContainer = document.getElementById('result-container');
-    const resultTable = document.getElementById('result-table').querySelector('tbody');
-    if (!resultContainer || !resultTable) return;
+    if (!resultContainer) return;
 
-    resultTable.innerHTML = '';
-
-    let tableCreationSuccessful = true;
-    try {
-        for (const [filename, data] of Object.entries(result.results)) {
-            const row = document.createElement('tr');
-            const filenameCell = document.createElement('td');
-            filenameCell.textContent = filename;
-            row.appendChild(filenameCell);
-
-            const resultCell = document.createElement('td');
-            const resultTable = document.createElement('table');
-            resultTable.className = 'nested-table';
-
-            for (const [key, value] of Object.entries(data)) {
-                const nestedRow = document.createElement('tr');
-                const keyCell = document.createElement('td');
-                keyCell.textContent = key;
-                const valueCell = document.createElement('td');
-                valueCell.textContent = value;
-                nestedRow.appendChild(keyCell);
-                nestedRow.appendChild(valueCell);
-                resultTable.appendChild(nestedRow);
-            }
-
-            resultCell.appendChild(resultTable);
-            row.appendChild(resultCell);
-            resultTable.appendChild(row);
+    let textOutput = '';
+    for (const [filename, data] of Object.entries(result.results)) {
+        textOutput += `Filename: ${filename}\n`;
+        for (const [key, value] of Object.entries(data)) {
+            textOutput += `  ${key}: ${value}\n`;
         }
-    } catch (error) {
-        console.error('Error creating table:', error);
-        tableCreationSuccessful = false;
+        textOutput += '\n';
     }
 
-    if (!tableCreationSuccessful) {
-        // Create text representation
-        let textOutput = '';
-        for (const [filename, data] of Object.entries(result.results)) {
-            textOutput += `Filename: ${filename}\n`;
-            for (const [key, value] of Object.entries(data)) {
-                textOutput += `  ${key}: ${value}\n`;
-            }
-            textOutput += '\n';
-        }
-        
-        // Display text output
-        const textContainer = document.createElement('pre');
-        textContainer.textContent = textOutput;
-        resultContainer.innerHTML = ''; // Clear existing content
-        resultContainer.appendChild(textContainer);
-    }
+    const textContainer = document.createElement('pre');
+    textContainer.textContent = textOutput;
+    resultContainer.innerHTML = '';
+    resultContainer.appendChild(textContainer);
 
     resultContainer.classList.remove('hidden');
-
     displayDocumentStatus(result);
 }
 
@@ -186,7 +177,7 @@ function displayDocumentStatus(result) {
 function createStatusElement(filename, status, content) {
     const element = document.createElement('div');
     element.className = `status-item ${status}`;
-    
+
     const header = document.createElement('h3');
     header.textContent = filename;
     element.appendChild(header);
@@ -263,5 +254,41 @@ function handleError(error) {
     if (errorMessageElement) {
         errorMessageElement.textContent = error.message;
         errorMessageElement.classList.remove('hidden');
+    }
+}
+
+function addMessageToChat(sender, message) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+        const messageElement = document.createElement('div');
+        messageElement.className = 'chat-message';
+        messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+}
+
+async function sendMessageToBackend(message) {
+    try {
+        const response = await fetch('/chatbot', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: message }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+            if (data.response) {
+                addMessageToChat('Chatbot', data.response);
+            } else {
+                addMessageToChat('Chatbot', 'I\'m sorry, I couldn\'t find any relevant information. Can you please rephrase your question?');
+            }
+        } else {
+            throw new Error(data.error || 'An error occurred');
+        }
+    } catch (error) {
+        console.error('Error sending message to backend:', error);
+        addMessageToChat('Chatbot', 'Sorry, an error occurred. Please try again.');
     }
 }
