@@ -11,10 +11,12 @@ from werkzeug.utils import secure_filename
 from pdf_processor import process_pdf, get_pdf_metadata
 from config import logger, MAX_QUEUE_SIZE, DOCUMENT_PROCESSING_DELAY, API_USAGE_LOG_PATH
 import openai
+from openai import OpenAI
 from openpyxl import Workbook
 import io
 import csv
 from diskcache import Cache
+from rag_system import initialize_rag_system, get_relevant_chunks
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -46,6 +48,8 @@ MAX_RETRIES = 5
 cache = Cache('./cache')
 
 executor = ThreadPoolExecutor(max_workers=4)
+
+client = OpenAI()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
@@ -135,6 +139,9 @@ def process_document(filename):
         document['result'] = result
         document['status'] = 'Completed'
         logger.info(f"Successfully processed document: {filename}")
+
+        # Initialize RAG system with processed documents
+        initialize_rag_system({filename: {'content': text}})
     except Exception as e:
         logger.error(f"Error processing document {filename}: {str(e)}")
         document['status'] = 'Failed'
@@ -276,6 +283,55 @@ def generate_api_usage_report():
 def api_usage_report():
     report = generate_api_usage_report()
     return jsonify(report)
+
+@app.route('/chatbot', methods=['POST'])
+@login_required
+def chatbot():
+    data = request.json
+    user_message = data.get('message')
+    
+    if not user_message:
+        return jsonify(error="No message provided"), 400
+
+    try:
+        # Use RAG system to retrieve relevant chunks
+        relevant_chunks = get_relevant_chunks(user_message)
+        
+        if not relevant_chunks:
+            return jsonify(response="I'm sorry, I couldn't find any relevant information in the processed documents. Can you please rephrase your question or ask about a different topic?")
+
+        # Construct prompt with relevant chunks
+        prompt = f"""Based on the following information from processed documents:
+
+{' '.join(relevant_chunks)}
+
+User question: {user_message}
+
+Please provide a concise and informative answer:"""
+        
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant for a compliance checklist generator application. Provide concise and accurate information based on the processed documents."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            chatbot_response = response.choices[0].message.content
+            return jsonify(response=chatbot_response)
+        except openai.error.APIError as api_error:
+            logger.error(f"OpenAI API error: {str(api_error)}")
+            return jsonify(error="An error occurred while processing your request. Please try again later."), 500
+        except openai.error.RateLimitError:
+            logger.error("OpenAI API rate limit exceeded")
+            return jsonify(error="The service is currently busy. Please try again in a few moments."), 429
+        except Exception as e:
+            logger.error(f"Unexpected error in OpenAI API call: {str(e)}")
+            return jsonify(error="An unexpected error occurred. Please try again later."), 500
+    except Exception as e:
+        logger.error(f"Error in chatbot: {str(e)}")
+        return jsonify(error="An error occurred while processing your request. Please try again."), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
