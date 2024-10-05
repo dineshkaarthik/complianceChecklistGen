@@ -1,24 +1,50 @@
-Install python 3.9 or greater
-Clone the repository:
-Open a terminal and run:
-git clone <repository_url>
-(Replace <repository_url> with the actual URL of the project repository)
+# CompCheckGenerator
 
-Navigate to the project directory:
-cd CompCheckGenerator
+## Prerequisites
 
-Create a virtual environment (optional but recommended):
-python -m venv venv
-Activate the virtual environment:
+- Python 3.9 or higher
 
-On Windows: venv\Scripts\activate
-On macOS and Linux: source venv/bin/activate
-Install the required dependencies:
-pip install -r requirements.txt
+## Installation
 
-Set up the environment variables:
-Create a .env file in the project root directory and add your OpenAI API key:
-OPENAI_API_KEY=your_api_key_here
+1. Clone the repository:
+   ```
+   git clone <repository_url>
+   ```
+   Replace `<repository_url>` with the actual URL of the project repository.
 
-Run the Flask application:
-python app.py
+2. Navigate to the project directory:
+   ```
+   cd CompCheckGenerator
+   ```
+
+3. Create a virtual environment (optional but recommended):
+   ```
+   python -m venv venv
+   ```
+
+4. Activate the virtual environment:
+   - On Windows:
+     ```
+     venv\Scripts\activate
+     ```
+   - On macOS and Linux:
+     ```
+     source venv/bin/activate
+     ```
+
+5. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+## Configuration
+
+1. Set up the environment variables:
+   Create a `.env` file in the project root directory and add your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+## Running the Application
+
+To run the Flask application:
