@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Details</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
     <nav>
         <ul>
@@ -20,8 +22,10 @@
         <h2>Generated Checklist</h2>
         <pre class="checklist">{{ document['checklist'] }}</pre>
         <div class="export-buttons">
-            <a href="{{ url_for('export_checklist', filename=document['filename'], format='csv') }}" class="button">Export CSV</a>
-            <a href="{{ url_for('export_checklist', filename=document['filename'], format='excel') }}" class="button">Export Excel</a>
+            <a href="{{ url_for('export_checklist', filename=document['filename'], format='csv') }}"
+                class="button">Export CSV</a>
+            <a href="{{ url_for('export_checklist', filename=document['filename'], format='excel') }}"
+                class="button">Export Excel</a>
         </div>
         <h2>Provide Feedback</h2>
         <form id="feedback-form" action="{{ url_for('submit_feedback', filename=document['filename']) }}" method="post">
@@ -43,4 +47,5 @@
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>
