@@ -330,7 +330,7 @@ Please provide a concise and informative answer:"""
             logger.error(f"Unexpected error in OpenAI API call: {str(e)}")
             return jsonify(error="An unexpected error occurred. Please try again later."), 500
     except Exception as e:
-        logger.error(f"Error in chatbot: {str(e)}")
+        logger.exception(f"Error in chatbot: {e}")
         return jsonify(error="An error occurred while processing your request. Please try again."), 500
 
 if __name__ == '__main__':

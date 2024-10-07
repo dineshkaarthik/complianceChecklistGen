@@ -13,7 +13,7 @@ UPLOAD_FOLDER = '/tmp'
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload size
 
 # OpenAI configuration
-OPENAI_API_KEY = os.getenv('xxx')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY is not set in the environment variables")
 

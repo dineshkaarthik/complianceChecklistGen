@@ -2,6 +2,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Tuple
+from logger import main_logger as logger
 
 class RAGSystem:
     def __init__(self):
@@ -26,8 +27,14 @@ class RAGSystem:
     def retrieve_relevant_chunks(self, query: str, top_k: int = 3) -> List[str]:
         top_docs = self.similarity_search(query, top_k)
         relevant_chunks = []
-        for doc_id, _ in top_docs:
-            relevant_chunks.append(self.documents[doc_id]['content'])
+        for doc_id, similarity in top_docs:
+            content = self.documents[doc_id]['content']
+            relevancy_percentage = similarity * 100
+            logger.info(f"Relevancy percentage: {relevancy_percentage}")
+            if relevancy_percentage > 5:
+                relevant_chunks.append(content)
+            else:
+                relevant_chunks.append(f"No relevant information found for this document")
         return relevant_chunks
 
 rag_system = RAGSystem()

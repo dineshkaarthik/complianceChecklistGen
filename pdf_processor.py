@@ -7,9 +7,10 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 import json
 import os
+from logger import main_logger as logger
 
 # Set up OpenAI API key and endpoint for chat completions
-OPENAI_API_KEY = os.environ.get('xxx')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 OPENAI_CHAT_COMPLETION_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
 
 # Function to extract text from a PDF file
@@ -23,7 +24,8 @@ def get_pdf_metadata(pdf_path):
     return text
 
 # Function to make an actual API call to OpenAI chat completion (GPT-4)
-def process_chunk_gpt4(chunk, retries=5, wait_time=2):
+def process_chunk_gpt4(chunk, index,retries=5, wait_time=2):
+    logger.info(f"Processing chunk number: {index}")
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -62,11 +64,13 @@ def process_chunk_gpt4(chunk, retries=5, wait_time=2):
     for attempt in range(retries):
         try:
             response = requests.post(OPENAI_CHAT_COMPLETION_ENDPOINT, headers=headers, json=data, timeout=30)
-            response.raise_for_status()  # Check for HTTP errors
+            response.raise_for_status()
+            logger.info(f"Completed chunk number: {index}")  # Check for HTTP errors
             return response.json()['choices'][0]['message']['content']  # Return the chat completion result
         except requests.exceptions.HTTPError as e:
+            logger.exception(f"Error processing chunk number: {index}, exception {e}")
             if response.status_code == 429:
-                print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                logger.info(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
                 wait_time *= 2  # Exponential backoff: double the wait time for each retry
             else:
@@ -77,8 +81,8 @@ def process_chunk_gpt4(chunk, retries=5, wait_time=2):
 def process_document_parallel(chunks, delay=2):
     with ThreadPoolExecutor(max_workers=5) as executor:
         results = []
-        for chunk in chunks:
-            result = executor.submit(process_chunk_gpt4, chunk)
+        for index, chunk in enumerate(chunks):
+            result = executor.submit(process_chunk_gpt4, chunk, index)
             results.append(result)
             time.sleep(delay)  # Simulating delay to avoid rate limits
         return [result.result() for result in results]
@@ -96,12 +100,12 @@ def generate_checklist(results):
     return checklist
 
 # Main processing function
-def process_pdf(text):
+def process_pdf(text, chunk_size=50000):
     # Simulating the extraction of relevant sections
-    chunks = [text[i:i+1000] for i in range(0, len(text), 1000)]  # Simulated chunking
+    chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)] # Simulated chunking
 
     # Process relevant sections (API call)
-    print("Processing relevant sections with GPT-4...")
+    logger.info(f"Processing total chunks: {len(chunks)}")
     results = process_document_parallel(chunks, delay=2)
 
     # Combine results into a single output
